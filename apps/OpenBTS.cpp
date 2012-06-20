@@ -29,11 +29,11 @@
 
 #include <Configuration.h>
 // Load configuration from a file.
-ConfigurationTable gConfig("/etc/OpenBTS/OpenBTS.db");
+ConfigurationTable gConfig("OpenBTS.db");
 
 // Set up the performance reporter.
 #include <Reporting.h>
-ReportingTable gReports(gConfig.getStr("Control.Reporting.StatsTable","/var/log/OpenBTSStats.db").c_str());
+ReportingTable gReports(gConfig.getStr("Control.Reporting.StatsTable","OpenBTSStats.db").c_str());
 
 #include <TRXManager.h>
 #include <GSML1FEC.h>
@@ -111,8 +111,6 @@ pid_t gTransceiverPid = 0;
 
 void startTransceiver()
 {
-	// kill any stray transceiver process
-	system("killall transceiver");
 
 	// Start the transceiver binary, if the path is defined.
 	// If the path is not defined, the transceiver must be started by some other process.

@@ -64,6 +64,8 @@ class GSMConfig {
 
 	/** The paging mechanism is built-in. */
 	Control::Pager mPager;
+	
+	Control::Handover mHandover;
 
 	PowerManager mPowerManager;
 
@@ -151,6 +153,7 @@ class GSMConfig {
 	/**@name Accessors. */
 	//@{
 	Control::Pager& pager() { return mPager; }
+	Control::Handover& handover() { return mHandover; }
 	GSMBand band() const { return mBand; }
 	unsigned BCC() const { return mBCC; }
 	unsigned NCC() const { return mNCC; }
@@ -299,6 +302,8 @@ class GSMConfig {
 
 	/** Get a handle to the power manager. */
 	PowerManager& powerManager() { return mPowerManager; }
+
+	TCHFACCHLogicalChannel* getTCHByTN(unsigned TN);
 };
 
 

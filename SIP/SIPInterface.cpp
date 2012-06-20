@@ -1,6 +1,7 @@
 /*
 * Copyright 2008, 2009, 2010 Free Software Foundation, Inc.
 * Copyright 2011 Range Networks, Inc.
+* Copyright 2012 Fairwaves LLC, Dmitri Soloviev <dmi3sol@gmail.com>
 *
 * This software is distributed under multiple licenses;
 * see the COPYING file in the main directory for licensing
@@ -221,6 +222,35 @@ void SIPInterface::write(const struct sockaddr_in* dest, osip_message_t *msg)
 
 
 
+/** this function is used to send responses, when address must be fetched from VIA */
+void SIPInterface::write(osip_message_t *msg) 
+{
+	struct sockaddr_in dest;
+	char * str;
+	size_t msgSize;
+	
+	// Get Record Route.
+	osip_via_t * via;
+	osip_message_get_via(msg, 0, &via);
+		
+	if (! resolveAddress(&dest, via->host, atoi(via->port))) {
+		LOG(ALERT) << "handover cannot resolve IP address to reply ";
+		return;
+	}
+	
+	osip_message_to_str(msg, &str, &msgSize);
+	if (!str) {
+		LOG(ALERT) << "osip_message_to_str produced a NULL pointer.";
+		return;
+	}
+	mSocketLock.lock();
+	mSIPSocket.send((const struct sockaddr*)&dest,str);
+	mSocketLock.unlock();
+	free(str);
+}
+
+
+
 
 void SIPInterface::drive() 
 {
@@ -346,6 +376,94 @@ const char* extractCallID(const osip_message_t* msg)
 
 }
 
+#define HANSOVER_SIGNATURE	"handover-"
+
+bool SIPInterface::checkInviteHOC(osip_message_t* msg){
+	// as SIP packing of handover may be changed, it seems reasonably to keep it
+	// apart from the stable code
+	
+	// Get the SIP call ID.
+	const char * callIDNum = extractCallID(msg);	
+	if (!callIDNum) {
+		// FIXME -- Send appropriate error on SIP interface.
+		LOG(WARNING) << "Incoming INVITE (handover) with no call ID";
+		return false;
+	}
+	if (strstr(callIDNum,HANSOVER_SIGNATURE) != callIDNum) return false;
+	
+	unsigned l3ti;
+	sscanf(callIDNum+strlen(HANSOVER_SIGNATURE),"%d",&l3ti);
+
+	// this is really a request for handover
+
+	// Get the caller ID if it's available.
+	//const char *callerID = "";
+	char callerHostAndIp[100];
+	osip_from_t *from = osip_message_get_from(msg);
+	if (from) {
+		osip_uri_t* url = osip_contact_get_url(from);
+		if (url) {			
+			strcpy(callerHostAndIp,url->host);
+			if(!strchr(callerHostAndIp,':')){
+				// FIXME looks strange, meanwhile url->host can contain
+				// smth like ip:host
+				strcat(callerHostAndIp,":");
+				strcat(callerHostAndIp,url->port);
+			}
+		}
+		else {
+			LOG(DEBUG) << "handover invite (or re-invite), cant fetch \'url\'";
+		}
+	}
+	else {
+		LOG(DEBUG) << "handover debug, checkInvite, \'from\' failed";
+	}
+	
+	// Get request username (IMSI) from invite. 
+	const char* IMSI = extractIMSI(msg);
+	if (!IMSI) {
+		LOG(WARNING) << "Incoming INVITE (handover) with no IMSI";
+		return false;
+	}
+	
+	// TO DO: if callIDNum is known, it can be ether:
+	// - a copy of handover setup
+	// - re-invite
+	// if no active handover with this callID, try to treat is as RE-INVITE
+	// otherwise just ignore it	
+
+	L3MobileIdentity mobileID(IMSI);
+	TransactionEntry* transaction= gTransactionTable.find(mobileID,callIDNum);
+		// There's a FIFO but no trasnaction record?
+		if (transaction) {
+			if(transaction->service() != GSM::L3CMServiceType::HandoverOriginatedCall){
+				char ip[20], port_str[10];
+				short port;
+				unsigned codec;
+
+				transaction->reinviteTarget(msg, ip, port_str, &codec);
+				port = atoi(port_str);
+				transaction->HOSendOK(msg);
+				transaction->callingTransaction()->HOSendREINVITE(ip, port, codec);
+				return true;
+			}
+		}
+	// this fuction will
+	// - allocate channel
+	// - allocate handover reference
+	// - create transaction
+	// - create handoverEntry and place it
+	// - link transaction and handover entry
+	// - send Ack (ea Proceeding
+	transaction= gTransactionTable.findLegacyTransaction(mobileID);
+			
+	addCall(callIDNum);
+	gBTS.handover().addHandover(callIDNum,IMSI,l3ti,callerHostAndIp,msg,transaction);
+		
+
+
+	return true;
+}
 
 
 void SIPInterface::sendEarlyError(osip_message_t * cause,
@@ -388,6 +506,7 @@ bool SIPInterface::checkInvite( osip_message_t * msg)
 	GSM::L3CMServiceType serviceType;
 	string proxy = get_return_address(msg);
 	if (strcmp(method,"INVITE") == 0) {
+		if(checkInviteHOC(msg)) return true;
 		// INVITE is for MTC.
 		// Set the required channel type to match the assignment style.
 		if (gConfig.defines("Control.VEA")) {
@@ -461,7 +580,6 @@ bool SIPInterface::checkInvite( osip_message_t * msg)
 		//if this is not the saved invite, it's a RE-invite. Respond saying we don't support it. 
 		if (!transaction->sameINVITE(msg)){
 		  /* don't cancel the call */
-			LOG(CRIT) << "got reinvite. transaction: " << *transaction << " SIP re-INVITE: " << msg;
 			transaction->MODSendERROR(msg, 488, "Not Acceptable Here", false);
 			/* I think we'd need to create a new transaction for this ack. Right now, just assume the ack makes it back. 
 			   if not, we'll hear another INVITE */

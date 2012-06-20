@@ -4,6 +4,7 @@
 * Copyright 2008, 2009, 2010, 2011 Free Software Foundation, Inc.
 * Copyright 2010 Kestrel Signal Processing, Inc.
 * Copyright 2011 Range Networks, Inc.
+* Copyright 2012 Fairwaves LLC, Dmitri Soloviev <dmi3sol@gmail.com>
 *
 * This software is distributed under the terms of the GNU Affero Public License.
 * See the COPYING file in the main directory for details.
@@ -32,6 +33,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <list>
+#include <fstream>
 
 #include "ControlCommon.h"
 #include "TransactionTable.h"
@@ -42,9 +44,13 @@
 #include <GPRSL1Interface.h>
 #include <GSMLogicalChannel.h>
 #include <GSMConfig.h>
+#include <SIPUtility.h>
+#include <SIPInterface.h>
 
 #include <Reporting.h>
 #include <Logger.h>
+#include <osipparser2/osip_message.h>
+#include <streambuf>
 #undef WARNING
 
 
@@ -54,6 +60,8 @@
 using namespace std;
 using namespace GSM;
 using namespace Control;
+using namespace SIP;
+extern TransceiverManager gTRX;
 
 
 
@@ -378,9 +386,63 @@ void Control::AssignmentCompleteHandler(const L3AssignmentComplete *confirm, TCH
 
 
 
+unsigned allocateRTPPorts(); // in CallControl.cpp
+void callManagementLoop(TransactionEntry *transaction, GSM::TCHFACCHLogicalChannel* TCH);	
 
+void Control::HandoverCompleteHandler(const GSM::L3HandoverComplete *confirm, GSM::LogicalChannel *DCCH){
+	gBTS.handover().showHandovers();
+	
+	assert(confirm);
+	assert(DCCH);
+	
+	TransactionEntry* transaction = gTransactionTable.find(DCCH);
+	if(transaction==NULL) {	
+		LOG(ERR) << "unable to resolve transaction for handover complete";
+		return;
+	}
+	
+	unsigned rtpPort = allocateRTPPorts();	
+	
+	gBTS.handover().handoverComplete(DCCH->TN());
+	// TODO: ensure that mInvite is stored!
 
+	TransactionEntry* existingTransaction = transaction->existingTransaction();
+	if( existingTransaction==NULL ){
+		// a handover with a new IMSI
+		transaction->HOCSendOK(rtpPort, SIP::RTPGSM610);
+	}
+	else{
+		LOG(ERR) << "flipping handover loop";
+		transaction->HOCTimeout();
+		transaction = existingTransaction;
+		char ip[20];
+		strcpy(ip,gConfig.getStr("SIP.Local.IP").c_str());
+		transaction->HOSendREINVITE(ip ,rtpPort, SIP::RTPGSM610);
+		// remove "proxy" flag
+		// send bye to the tail
+		transaction->cutHandoverTail(DCCH);
+	}
+	
+	gBTS.handover().showHandovers();			
 
+	transaction->MTCInitRTP();	// ea obtain peers' rtp from mInvite
+
+	transaction->GSMState(GSM::Active);
+	// continue as if it was a legacy call
+	callManagementLoop(transaction,(GSM::TCHFACCHLogicalChannel*)DCCH);
+}
+
+void Control::HandoverFailureHandler(const GSM::L3HandoverFailure *failure, GSM::LogicalChannel *DCCH){
+	assert(failure);
+	assert(DCCH);
+	
+	TransactionEntry* transaction = gTransactionTable.find(DCCH);
+	if(transaction==NULL) {	
+		LOG(ERR) << "unable to resolve transaction for handover failure";
+		return;
+	}
+	transaction->handoverFailed();
+}
 
 
 void Pager::addID(const L3MobileIdentity& newID, ChannelType chanType,
@@ -536,5 +598,512 @@ void Pager::dump(ostream& os) const
 }
 
 
+Handover::Handover(){
+	mRunning = false;
+	mT3105 = gConfig.getNum("GSM.Handover.T3105");
+	mHandoverReference = 1;
 
+	/* preparing stuff to take decision locally */
+	mBTSDesicion = false;
+	
+	mNeighborArfcns = gConfig.getVector("GSM.CellSelection.Neighbors");
+	
+	mNeighborAddresses.resize(mNeighborArfcns.size());
+	
+	std::string addr;
+	unsigned arfcn;
+	ifstream inFile;
+	inFile.open(gConfig.getStr("GSM.Handover.BTS.NeighborsFilename").c_str(), ios::in);
+	if(!inFile){
+		LOG(ERR) << "no file with Neighbor ip-ARFCN pairs";
+		return;
+	}
+	while(inFile >> arfcn >> addr){
+		std::cout << "looking position for" << arfcn << '\n';
+		for(int i=0;i<mNeighborArfcns.size() && (i<6);i++)
+			if(mNeighborArfcns[i] == arfcn) {
+				mBTSDesicion = true;
+				mNeighborAddresses[i] = addr;
+			}
+	}
+	inFile.close();
+	
+}
+
+void Handover::BTSDecision(Control::TransactionEntry* transaction, GSM::L3MeasurementResults wMeasurementResults){
+	if(mBTSDesicion && gConfig.getNum("GSM.Handover.BTS.Enable")) {
+		if(wMeasurementResults.NO_NCELL() == 0) {
+			LOG(DEBUG) << "handover BTS decision: no useful data: " << wMeasurementResults;
+			return;
+		}
+		
+		vector <int> averaged = transaction->average(wMeasurementResults,atof(gConfig.getStr("GSM.Handover.BTS.Weights").c_str()));
+		
+		if(! transaction->handoverAllowed()) return;
+		
+		int max,index,diff;
+		for(int i=0, index=max=0;i<wMeasurementResults.NO_NCELL();i++){
+			diff = averaged[i] - averaged[6];
+			LOG(DEBUG) << transaction->subscriber() << ", neighbor " << mNeighborAddresses[i] << "/"<< mNeighborArfcns[i] << ", delta=" << diff << "dB";
+			if(diff>max) { max = diff, index = i; }
+		}
+		
+		if(max > gConfig.getNum("GSM.Handover.BTS.Hysteresis")) {
+			LOG(DEBUG) << "triggering " << transaction->subscriber() << "BTS index: " << index << " addr=" << mNeighborAddresses[index];
+			performHandover(transaction->subscriber(),mNeighborAddresses[index]);
+			// permit changing a favorite
+			transaction->resetMeasurement(index);
+		}
+	}
+	else {
+		;// I think need to forward measurement results to a core network element7
+	}
+}
+
+HandoverEntry::HandoverEntry(TransactionEntry* wTransaction, GSM::TCHFACCHLogicalChannel* wTCH, unsigned wHandoverReference, const char *wCallID)
+	:mTransaction(wTransaction), mTCH(wTCH), mHandoverReference(wHandoverReference), mCallID(wCallID),
+	mGotHA(false),mGotHComplete(false),mRegisterPerformed(false),mPhysicalInfoAttempts(0),mInitialTA(0){
+
+	status("handover entry constructor");
+	
+	gTRX.ARFCN(0)->handoverOn(mTCH->TN(),mHandoverReference);	
+	mNy1 = gConfig.getNum("GSM.Handover.Ny1");
+	mT3103 = Z100Timer(gConfig.getNum("GSM.Handover.T3103"));
+	mT3103.set();	// Limit transaction lifetime
+}
+
+
+
+
+void HandoverEntry::HandoverAccessDetected(int wInitialTA){
+	status("handover access detected");
+	ScopedLock lock(mLock);
+	
+	mInitialTA = wInitialTA;
+	
+	gTRX.ARFCN(0)->handoverOff(mTCH->TN());
+	mGotHA = true;
+	
+	mPhysicalInfoAttempts = 0;
+	T3105Tick();	// just to accelerate a process
+}
+
+
+
+
+bool HandoverEntry::T3105Tick(){
+	ScopedLock lock(mLock);
+	if(mGotHComplete){
+		status("handover, too late to adjust\n");
+	}
+	if(mGotHA){
+		status("handover, sending Physical Information\n");
+		
+		// FIXME it seems to be nonsense - I'll check it later
+		GSM::TCHFACCHLogicalChannel * facch = gBTS.getTCHByTN(mTCH->TN());
+		facch->send(L3PhysicalInformation(mInitialTA),UNIT_DATA,0);
+	
+		mPhysicalInfoAttempts++;
+		return true;
+	}
+	return false;
+}
+
+
+
+
+void HandoverEntry::HandoverCompleteDetected(){
+	status("handover complete detected");
+	ScopedLock lock(mLock);
+	
+	mGotHA = false;
+	mGotHComplete = true;
+	mT3103.reset();	//?? mT3103.stop();
+}
+
+
+
+
+bool HandoverEntry::SipRegister(){
+	status("handover, SIP Register");
+	ScopedLock lock(mLock);
+	
+	const char *IMSI;
+		
+	if(mGotHComplete){
+		IMSI = mTransaction->subscriber().digits(); //HOCgetIMSI();
+
+		try {
+			SIPEngine engine(gConfig.getStr("SIP.Proxy.Registration").c_str(),IMSI);
+			// FIXME is there any reason to check result: extra t
+			mRegisterPerformed = engine.Register(SIPEngine::SIPRegister); 
+		}
+		catch(SIPTimeout) {
+			LOG(ALERT) "SIP registration timed out (handover), proxy is " << gConfig.getStr("SIP.Proxy.Registration");
+		}
+		return true;
+	}
+	return false;
+}
+
+
+
+
+bool HandoverEntry::removeHandoverEntry(){
+	ScopedLock lock(mLock);
+	
+	if(mGotHA)
+		if(mPhysicalInfoAttempts >= mNy1) {
+			gTRX.ARFCN(0)->handoverOff(mTCH->TN());
+			// FIXME is it worth doing anything??
+			// originating party does not need it
+			mTransaction->HOCTimeout();
+			gSIPInterface.removeCall(mTransaction->SIPCallID());
+			gTransactionTable.remove(mTransaction);
+			return true;
+		}
+	if(mRegisterPerformed) {
+		gTRX.ARFCN(0)->handoverOff(mTCH->TN());	// this will spoil nothing..
+		return true;
+	}
+	if(mT3103.expired() && (!mGotHComplete)){
+		
+		gTRX.ARFCN(0)->handoverOff(mTCH->TN());
+		// FIXME is it worth doing anything??
+		// originating party does not need it
+		mTransaction->HOCTimeout();
+		gSIPInterface.removeCall(mTransaction->SIPCallID());
+		gTransactionTable.remove(mTransaction);
+		return true;
+	}
+	
+	return false;
+}
+
+
+
+
+void HandoverEntry::status(const char *intro){
+	LOG(DEBUG) << intro << " TA=" <<  mInitialTA << ", sent=" << mPhysicalInfoAttempts <<
+		", Ny1=" << mNy1 << ", chan=" << mTCH <<
+		", gotHA=" << mGotHA << ", gotHC=" << mGotHComplete <<
+		", regDone=" << mRegisterPerformed << ", ref=" << mHandoverReference <<
+		", transaction=" << mTransaction;
+}
+
+
+
+
+void Handover::start()
+{
+	if (mRunning) return;
+	mRunning=true;
+	mHandoverThread.start((void* (*)(void*))HandoverServiceLoop, (void*)this);
+}
+
+
+
+void Handover::handoverHandler(){
+	while(mRunning){
+
+		mLock.lock();
+		while ((mHandovers.size()==0)&&(mOutgoingHandovers.size()==0)) mHandoverSignal.wait(mLock);
+		mLock.unlock();
+
+//		showHandovers();
+		
+		for (HandoverEntryList::iterator lp = mHandovers.begin(); lp != mHandovers.end(); lp++) {
+			if (lp->removeHandoverEntry()) {
+				mHandovers.erase(lp);
+				break;	// remove a single entry per cycle - not too awful
+			}
+		}
+
+		bool delaySipRegister = false;
+		for (HandoverEntryList::iterator lp = mHandovers.begin(); lp != mHandovers.end(); lp++) {
+//			LOG(WARNING) << "processing handover " << lp->handoverReference();
+			delaySipRegister |= lp->T3105Tick();
+		}
+		
+		for (OutgoingHandoverList::iterator lp = mOutgoingHandovers.begin(); lp != mOutgoingHandovers.end(); lp++) {
+			if(lp->isFinished()) {
+				mOutgoingHandovers.erase(lp);
+				break;
+			}
+		}
+		
+		if(delaySipRegister) {
+			usleep(mT3105);
+			continue;
+		}
+		
+		// SIP activities pauses a thread, so 
+		// --they can be performed when 
+		//   no on-line handover activities are required.
+		// -- one registration procedure per cycle is enough
+		
+		bool need2sleep = true;
+		for (HandoverEntryList::iterator lp = mHandovers.begin(); lp != mHandovers.end(); lp++) {
+//			LOG(WARNING) << "checking whether Register after handover needed " << lp->handoverReference();
+			if(lp->SipRegister()) {
+				mHandovers.erase(lp);
+				need2sleep = false;
+				break;
+			}
+		}
+		
+		if(need2sleep) usleep(mT3105);
+	}
+}
+
+
+
+void Handover::handoverAccess(unsigned wTN, int initialTA){
+	for (HandoverEntryList::iterator lp = mHandovers.begin(); lp != mHandovers.end(); lp++) {
+		if (lp->channel()->TN()==wTN) {
+			lp->HandoverAccessDetected(initialTA);
+			return;
+		}
+	}
+	showHandovers();
+}
+
+
+
+unsigned Handover::allocateHandoverReference(){
+	mHandoverReference++; 
+	if(mHandoverReference>=255) mHandoverReference = 1;
+	
+	return mHandoverReference;
+}
+
+void Handover::handoverComplete(unsigned wTN){
+	for (HandoverEntryList::iterator lp = mHandovers.begin(); lp != mHandovers.end(); lp++) {
+		if (lp->channel()->TN()==wTN) {
+			lp->HandoverCompleteDetected();
+			return;
+		}
+	}
+	showHandovers();
+}
+
+
+void Handover::showHandovers(){
+	for (HandoverEntryList::iterator lp = mHandovers.begin(); lp != mHandovers.end(); lp++) {
+		lp->status("show handovers");
+	}
+}
+
+
+bool Handover::addHandover(const char* callID, const char* IMSI, unsigned l3ti, const char* callerHost, void* msg, TransactionEntry* existingTransaction){
+	
+	L3MobileIdentity mobileID(IMSI);
+
+	// allocate a channel
+	GSM::TCHFACCHLogicalChannel *TCH = NULL;
+	TCH = gBTS.getTCH();
+	if (TCH==NULL) {
+		// FIXME -- Send appropriate error on SIP interface.
+		return false;
+	}
+	
+	ScopedLock lock(mLock);
+	
+	// if the old handover-originated call finished at the same channel, 
+	// but SIP Register still needs to be done
+	for (HandoverEntryList::iterator lp = mHandovers.begin(); lp != mHandovers.end(); lp++) {
+		if(lp->channel()->TN() == TCH->TN()){
+			// FIXME -- Send appropriate error on SIP interface.
+			lp->status("duplicated handover");
+			return false;
+		}
+	}
+	
+	TCH->open();
+	
+	// create a transaction
+	Control::TransactionEntry *transaction = new Control::TransactionEntry(
+//		gConfig.getStr("SIP.Proxy.SMS").c_str(),
+		callerHost,
+		mobileID,
+		TCH,
+		l3ti,
+		GSM::L3CMServiceType::HandoverOriginatedCall,existingTransaction);
+	
+	// handover transaction has callerNumber==calledNumber
+	transaction->SIPUser(callID,IMSI,IMSI,callerHost);
+	transaction->saveINVITE((osip_message_t*)msg,false);
+	
+	unsigned handoverReference = allocateHandoverReference();	
+
+	mHandovers.push_back(HandoverEntry(transaction,TCH,handoverReference,callID));
+	gTransactionTable.add(transaction);
+	//HandoverEntry* handover = find_handover(TCH->TN());
+	//transaction->addHandoverEntry(handover);	// provide a value to transaction
+	//handover->status("handover, transaction added");
+
+	std::ostringstream strm;
+	L3ChannelDescription chDesc = TCH->channelDescription();
+	TCH->channelDescription().text(strm);
+	std::string stringWithChannelDescription = strm.str();
+	
+	transaction->HOCSendHandoverAck(handoverReference, 
+		gConfig.getNum("GSM.Identity.BSIC.BCC"),
+		gConfig.getNum("GSM.Identity.BSIC.NCC"),
+		gConfig.getNum("GSM.Radio.C0"),
+		stringWithChannelDescription.c_str());
+	
+	//handover->status("handover, ack'd");
+	
+	showHandovers();
+	mHandoverSignal.signal();
+	return true;
+}
+
+void* Control::HandoverServiceLoop(Handover * handover){
+	handover->handoverHandler();
+	return NULL;
+}
+bool Handover::performHandover(const GSM::L3MobileIdentity& wSubscriber,
+					string whichBTS){
+	
+	// find transaction which serves a call leg
+	Control::TransactionEntry* transaction= gTransactionTable.find(wSubscriber,GSM::Active);
+	if(transaction==NULL) {
+		LOG(ERR) << "request for handover: transaction with IMSI not found " << wSubscriber;
+		return false;
+	}
+	
+	if(! (transaction->handoverLock())) {
+		LOG(DEBUG) << "second handover attempt for transaction: refused";
+		return false;
+	}
+	
+	// fetch key params for handover
+	unsigned codec = transaction->codec();
+	short destRTPPort = transaction->destRTPPort();
+	char* destRTPIp = transaction->destRTPIp();
+	unsigned l3ti = transaction->L3TI();
+	
+	// create a temporary transaction and start the procedure
+	Control::TransactionEntry *newTransaction = 
+		new Control::TransactionEntry(transaction, wSubscriber, 
+				whichBTS,
+				l3ti, destRTPIp, destRTPPort, codec);
+		
+	mOutgoingHandovers.push_back(OutgoingHandover(newTransaction));
+	gTransactionTable.add(newTransaction);
+	mHandoverSignal.signal();
+	return true;
+}
+
+void Handover::showOutgoingHandovers(){
+	ScopedLock lock(mLock);
+	for (OutgoingHandoverList::iterator lp = mOutgoingHandovers.begin(); lp != mOutgoingHandovers.end(); lp++) {
+		lp->status();
+	}
+}
+
+void Handover::dump(ostream& os) const{
+    	ScopedLock lock(mLock);
+	
+	for (OutgoingHandoverList::const_iterator lp = mOutgoingHandovers.begin(); lp != mOutgoingHandovers.end(); lp++) {
+		os << lp-> status() << endl;
+	}
+}
+
+OutgoingHandover::OutgoingHandover(TransactionEntry* wTransaction)
+	:mTransactionHO(wTransaction),mDestroyTail(false){
+	
+	mT3103 = Z100Timer(gConfig.getNum("GSM.Handover.T3103"));
+	mT3103.set();
+}
+
+void Handover::removeProxy(Control::TransactionEntry *mscTransaction){
+	// first find outgoing HO entity
+	for (OutgoingHandoverList::iterator lp = mOutgoingHandovers.begin(); lp != mOutgoingHandovers.end(); lp++) {
+		if(lp->getMscTransaction() == mscTransaction) { 
+			// send BYE to the tail
+			// remove tail
+			// remove entity
+			lp->destroyTail();
+			return;
+		}
+	}
+	
+}
+
+bool OutgoingHandover::isFinished(){
+	
+	if(mDestroyTail) {
+		mTransactionHO->MODSendBYE();
+		gSIPInterface.removeCall(mTransactionHO->SIPCallID());
+		gTransactionTable.remove(mTransactionHO);
+		return true;
+	}
+	
+	osip_message_t *msg;
+	bool term = false;
+	
+	if(mTransactionHO->SIPState() != HO_Proxy){
+		if(mT3103.expired()){
+			gSIPInterface.removeCall(mTransactionHO->SIPCallID());
+			gTransactionTable.remove(mTransactionHO);
+			return true;
+		}
+		
+		if(mTransactionHO->HOSetupFinished()){
+			gSIPInterface.removeCall(mTransactionHO->SIPCallID());
+			gTransactionTable.remove(mTransactionHO);
+			return true;
+		}
+		else if(mTransactionHO->SIPState() == HO_Proxy){
+			mTransactionMSC = mTransactionHO->callingTransaction();
+		}
+		return false;
+	}
+
+	
+		
+	// Proxy activites;
+	msg = mTransactionHO->HOGetSIPMessage();
+	if(msg != NULL) {
+		term = HOProxyUplinkSM(msg, mTransactionHO, mTransactionMSC);
+	}
+	if(term) {
+		mTransactionHO->MTDSendBYEOK();
+		
+		gSIPInterface.removeCall(mTransactionHO->SIPCallID());
+		gTransactionTable.remove(mTransactionHO);
+		
+		gSIPInterface.removeCall(mTransactionMSC->SIPCallID());
+		gTransactionTable.remove(mTransactionMSC);
+		return true;
+	}
+	
+	msg = mTransactionMSC->HOGetSIPMessage();
+	if(msg != NULL) {
+		term = HOProxyDownlinkSM(msg, mTransactionMSC, mTransactionHO);
+	}
+	if(term) {
+		mTransactionMSC->MTDSendBYEOK();
+		
+		gSIPInterface.removeCall(mTransactionHO->SIPCallID());
+		gTransactionTable.remove(mTransactionHO);
+
+		gSIPInterface.removeCall(mTransactionMSC->SIPCallID());
+		gTransactionTable.remove(mTransactionMSC);
+		return true;
+	}
+	return false;
+}
+
+
+const char * OutgoingHandover::status() const{
+
+	LOG(DEBUG) << " outgoing handover transaction " << mTransactionHO << ", status=" << mTransactionHO->SIPState();
+
+	if(mTransactionHO->SIPState() == HO_Proxy) return "handover performed";
+	else return "trying to perform handover";
+}
 // vim: ts=4 sw=4
