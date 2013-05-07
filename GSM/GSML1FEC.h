@@ -647,7 +647,26 @@ class SACCHL1Decoder : public XCCHL1Decoder {
 /**
 	L1 decoder for the PDTCH.
 */
-class PDTCHL1Decoder : public XCCHL1Decoder {
+class PDTCHL1Decoder : public L1Decoder {
+
+	protected:
+
+	/**@name FEC state. */
+	//@{
+	Parity mBlockCoderCS1;
+	Parity mBlockCoderCS2;
+	Parity mBlockCoderCS3;
+	Parity mBlockCoderCS4;
+	SoftVector mI[4];			///< i[][], as per GSM 05.03 2.2
+	SoftVector mC;				///< c[], as per GSM 05.03 2.2
+	BitVector mU;				///< u[], as per GSM 05.03 2.2
+	BitVector mP;				///< p[], as per GSM 05.03 2.2
+	BitVector mDP;				///< d[]:p[] (data & parity)
+	BitVector mD;				///< d[], as per GSM 05.03 2.2
+	//@}
+
+	GSM::Time mReadTime;		///< timestamp of the first burst
+	unsigned mRSSIHistory[4];
 
 	private:
 
@@ -655,16 +674,15 @@ class PDTCHL1Decoder : public XCCHL1Decoder {
 
 	RLCMACFrameFIFO mFramesQ;					///< output queue for PDTCH frames
 
+	unsigned mCS;
+
 	public:
 
 	PDTCHL1Decoder(
 		unsigned wCN,
 		unsigned wTN,
 		const TDMAMapping& wMapping,
-		PDTCHL1FEC *wParent)
-		:XCCHL1Decoder(wCN,wTN,wMapping,(L1FEC*)wParent),
-		mPDTCHParent(wParent)
-	{ }
+		PDTCHL1FEC *wParent);
 
 	ChannelType channelType() const { return PDTCHType; }
 
@@ -676,6 +694,14 @@ class PDTCHL1Decoder : public XCCHL1Decoder {
 		Override processBurst to catch the physical parameters.
 	*/
 	bool processBurst(const RxBurst&);
+	
+	void deinterleave();
+	
+	int decodeUSF(int USF);
+	
+	bool depuncture();
+	
+	bool decode();
 	
 	void writeLowSide(const RxBurst&);
 
@@ -1089,8 +1115,23 @@ typedef XCCHL1Encoder SDCCHL1Encoder;
 /**
 	L1 encoder for the PDTCH.
 */
-class PDTCHL1Encoder : public XCCHL1Encoder {
+class PDTCHL1Encoder : public L1Encoder {
 
+	protected:
+
+	/**@name FEC signal processing state.  */
+	//@{
+	Parity mBlockCoderCS1;			///< block coder for this channel
+	Parity mBlockCoderCS2;			///< block coder for this channel
+	Parity mBlockCoderCS3;			///< block coder for this channel
+	Parity mBlockCoderCS4;			///< block coder for this channel
+	BitVector mI[4];			///< i[][], as per GSM 05.03 2.2
+	BitVector mC;				///< c[], as per GSM 05.03 2.2
+	BitVector mU;				///< u[], as per GSM 05.03 2.2
+	BitVector mD;				///< d[], as per GSM 05.03 2.2
+	BitVector mP;				///< p[], as per GSM 05.03 2.2
+	//@}
+ 
 	private:
 
 	PDTCHL1FEC *mPDTCHParent;
@@ -1099,14 +1140,17 @@ class PDTCHL1Encoder : public XCCHL1Encoder {
 	
 	RLCMACFrameFIFO mRLCMACQ;
 
+	int mCS;
+
 	friend void PDTCHL1EncoderRoutine( PDTCHL1Encoder * encoder );	
 
 	public:
 
-	PDTCHL1Encoder(unsigned wCN, unsigned wTN, const TDMAMapping& wMapping, PDTCHL1FEC *wParent)
-		:XCCHL1Encoder(wCN,wTN,wMapping,(L1FEC*)wParent),
-		mPDTCHParent(wParent)
-	{}
+	PDTCHL1Encoder(
+		unsigned wCN,
+		unsigned wTN,
+		const TDMAMapping& wMapping,
+		PDTCHL1FEC *wParent);
 
 	void open();
 
@@ -1127,11 +1171,25 @@ class PDTCHL1Encoder : public XCCHL1Encoder {
 
 	void start();
 
+	/**
+	  Encode u[] to c[].
+	  Includes LSB-MSB reversal within each octet.
+	*/
+	void encode();
+
+	/**
+	  Interleave c[] to i[].
+	  GSM 05.03 4.1.4.
+	*/
+	void interleave();
+
+	void transmit();
+
+	int encodeUSF(int usf);
+
+	void puncture();
+
 	unsigned headerOffset() const { return 16; }
-
-	/** A warpper to send an L2 frame with a physical header.  */
-	virtual void sendFrame(const L2Frame&);
-
 };
 
 /** The C adapter for pthreads. */
