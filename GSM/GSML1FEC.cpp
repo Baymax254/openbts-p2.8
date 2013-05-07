@@ -124,6 +124,53 @@ static const int powerCommand1900[32] =
 	0, 0, 0, 0,		// 28-31
 };
 
+static const uint8_t punctureCS2[588] = {
+	0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1,
+	0,0,0,1, 0,0,0,0, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1,
+	0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,0, 0,0,0,1, 0,0,0,1,
+	0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1,
+	0,0,0,1, 0,0,0,0, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1,
+	0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,0, 0,0,0,1, 0,0,0,1,
+	0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1,
+	0,0,0,1, 0,0,0,0, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1,
+	0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,0, 0,0,0,1, 0,0,0,1,
+	0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1,
+	0,0,0,1, 0,0,0,0, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1,
+	0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,0, 0,0,0,1, 0,0,0,1,
+	0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1,
+	0,0,0,1, 0,0,0,0, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1,
+	0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,0, 0,0,0,1, 0,0,0,1,
+	0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1,
+	0,0,0,1, 0,0,0,0, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1,
+	0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,0, 0,0,0,1, 0,0,0,1,
+	0,0,0,1, 0,0,0,1, 0,0,0,1
+};
+
+static const uint8_t punctureCS3[676] = {
+	0,0,0,0,0,0, 0,0,0,0,0,0, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1,
+	0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1,
+	0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1,
+	0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1,
+	0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1,
+	0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1,
+	0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1,
+	0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1,
+	0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1,
+	0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1,
+	0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1,
+	0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1,
+	0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1,
+	0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1,
+	0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1,
+	0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1,
+	0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1,
+	0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1,
+	0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1,
+	0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1,
+	0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1,
+	0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,1,0,1,
+	0,0,0,1,0,1, 0,0,0,1,0,1, 0,0,0,0
+};
 
 const int* pickTable()
 {
@@ -747,10 +794,28 @@ void PDTCHL1Decoder::close(bool hardRelease)
 	mActive = false;
 }
 
-bool PDTCHL1Decoder::processBurst(const RxBurst& inBurst)
+PDTCHL1Decoder::PDTCHL1Decoder(
+		unsigned wCN,
+		unsigned wTN,
+		const TDMAMapping& wMapping,
+		PDTCHL1FEC *wParent)
+	:L1Decoder(wCN,wTN,wMapping,wParent),
+	mPDTCHParent(wParent),
+	mCS(0),
+	mBlockCoderCS1(0x10004820009ULL, 40, 224),
+	mBlockCoderCS2(0x11021, 16, 271),
+	mBlockCoderCS3(0x11021, 16, 315),
+	mBlockCoderCS4(0x11021, 16, 431),
+	mC(456), mU(228),
+	mP(mU.segment(184,40)),mDP(mU.head(224)),mD(mU.head(184))
 {
-	return XCCHL1Decoder::processBurst(inBurst);
+	for (int i=0; i<4; i++) {
+		mI[i] = SoftVector(114);
+		// Fill with zeros just to make Valgrind happy.
+		mI[i].fill(.0);
+	}
 }
+
 
 void PDTCHL1Decoder::writeLowSide(const RxBurst& inBurst)
 {
@@ -774,9 +839,291 @@ void PDTCHL1Decoder::writeLowSide(const RxBurst& inBurst)
 	}
 }
 
+bool PDTCHL1Decoder::processBurst(const RxBurst& inBurst)
+{
+	OBJLOG(DEBUG) <<"PDTCHL1Decoder " << inBurst;
+	// Accept the burst into the deinterleaving buffer.
+	// Return true if we are ready to interleave.
+
+	// TODO -- One quick test of burst validity is to look at the tail bits.
+	// We could do that as a double-check against putting garbage into
+	// the interleaver or accepting bad parameters.
+
+	// The reverse index runs 0..3 as the bursts arrive.
+	// It is the "B" index of GSM 05.03 4.1.4 and 4.1.5.
+	static int wait_B = 0;
+	int B = mMapping.reverseMapping(inBurst.time().FN()) % 4;
+	// A negative value means that the demux is misconfigured.
+	assert(B>=0);
+
+	if (B == wait_B) {
+		if(B==3) wait_B = 0;
+		else wait_B ++;
+	}
+	else {
+		wait_B = 0;
+		return false;
+	}
+
+
+	// Pull the data fields (e-bits) out of the burst and put them into i[B][].
+	// GSM 05.03 4.1.5
+	
+	static int cs = 0;
+	if (B==0) cs = 0;
+	cs = cs<<1;
+	cs += inBurst.Hl();
+	cs = cs<<1;
+	cs += inBurst.Hu();
+
+	if(B==3) {
+		int cs_mask[4] = {0xff,0xc8,0x21,0x16};
+		for (unsigned i = 0; i < 4; i++) {
+			if (cs == cs_mask[i]) {
+				cs = 0;
+				mCS = i+1;
+				break;
+			}
+		}
+	}
+
+
+	inBurst.data1().copyToSegment(mI[B],0);
+	inBurst.data2().copyToSegment(mI[B],57);
+
+
+
+	// If the burst index is 0, save the time
+	if (B==0) {
+		mCS = 0;
+		mReadTime = inBurst.time();
+	}
+
+	// If the burst index is 3, then this is the last burst in the L2 frame.
+	// Return true to indicate that we are ready to deinterleave.
+	if ((B==3)&&(mCS)){
+		return true;
+	}
+	else {
+		return false;
+	}
+
+	// TODO -- This is sub-optimal because it ignores the case
+	// where the B==3 burst is simply missing, even though the soft decoder
+	// might actually be able to recover the frame.
+	// It also allows for the mixing of bursts from different frames.
+	// If we were more clever, we'd be watching for B to roll over as well.
+}
+
+
+void PDTCHL1Decoder::deinterleave()
+{
+	// Deinterleave i[][] to c[].
+	// This comes directly from GSM 05.03, 4.1.4.
+	for (int k=0; k<456; k++) {
+		int B = k%4;
+		int j = 2*((49*k) % 57) + ((k%8)/4);
+		mC[k] = mI[B][j];
+		// Mark this i[][] bit as unknown now.
+		// This makes it possible for the soft decoder to work around
+		// a missing burst.
+		mI[B][j] = 0.5F;
+	}
+}
+
+int PDTCHL1Decoder::decodeUSF(int USF)
+{
+	int decodeUSF = -1;
+	int USF_CS_2_3[8] = {0x00, 0x0b, 0x16, 0x1d, 0x25, 0x2e, 0x33, 0x38};
+	int USF_CS_4[8] = {0x000, 0x0dd, 0x376, 0x3ab, 0xd0b, 0xdd6, 0xe7d, 0xea0};
+	switch (mCS) {
+		case 1:
+			break;
+		case 2:
+		case 3:
+			for (unsigned i = 0; i < 8; i++)
+			{
+				if (USF == USF_CS_2_3[i])
+				{
+					decodeUSF = i;
+					break;
+				}
+			}
+			break;
+		case 4:
+			for (unsigned i = 0; i < 8; i++)
+			{
+				if (USF == USF_CS_4[i])
+				{
+					decodeUSF = i;
+					break;
+				}
+			}
+			break;
+	}
+	return decodeUSF;
+}
+
+bool PDTCHL1Decoder::depuncture()
+{
+	SoftVector C(588);
+	C.unknown();
+
+	switch (mCS) {
+	case 2:
+		{
+			int j = 0;
+			for (int i = 0; i < 588; i++) {
+				if (punctureCS2[i] == 0) {
+					C[i] = mC[j];
+					j++;
+				}
+			}
+		}
+		break;
+	case 3:
+		{
+			C.resize(676);
+			C.unknown();
+			int j = 0;
+			for (int i = 0; i < 676; i++) {
+				if (punctureCS3[i] == 0) {
+					C[i] = mC[j];
+					j++;
+				}
+			}
+		}
+		break;
+	}
+	mC = C;
+}
+
+bool PDTCHL1Decoder::decode()
+{
+	// Apply the convolutional decoder and parity check.
+	// Return true if we recovered a good L2 frame.
+
+	uint64_t syndrome = 1;
+	int usf;
+
+	// Convolutional decoding c[] to u[].
+	// GSM 05.03 5.1.1, 5.1.2, 5.1.3, 5.1.4
+
+	switch (mCS) {
+	case 1:
+		mU.resize(228);
+		mC.decode(mVCoder,mU);
+		mP.resize(40);
+		mU.segmentCopyTo(mP,184,40);
+		mP.invert();
+		mD.resize(184);
+		mU.segmentCopyTo(mD,0,184);
+		mDP.resize(224);
+		mD.copyTo(mDP);
+		mP.copyToSegment(mDP,184);
+		syndrome = mBlockCoderCS1.syndrome(mDP);
+		break;
+	case 2:
+		{
+			depuncture();
+			mU.resize(294);
+			mC.decode(mVCoder,mU);
+			mC.resize(456);
+			mP.resize(16);
+			mU.segmentCopyTo(mP,274,16);
+			mP.invert();
+			usf = decodeUSF(mU.peekField(0, 6));
+			if (usf < 0) {
+				return false;
+			}
+			BitVector USF(3);
+			USF.fillField(0,usf,3);
+			mD.resize(271);
+			USF.copyTo(mD);
+			mU.segment(6,268).copyToSegment(mD,3);
+			mDP.resize(287);
+			mD.copyTo(mDP);
+			mP.copyToSegment(mDP,271);
+			int tail = mU.peekField(290, 4);
+			if (tail != 0) {
+				return false;
+			}
+			syndrome = mBlockCoderCS2.syndrome(mDP);
+		}
+		break;
+	case 3:
+		{
+			depuncture();
+			mU.resize(338);
+			mC.decode(mVCoder,mU);
+			mC.resize(456);
+			mP.resize(16);
+			mU.segmentCopyTo(mP,318,16);
+			mP.invert();
+			usf = decodeUSF(mU.peekField(0, 6));
+			if (usf < 0) {
+				return false;
+			}
+			BitVector USF(3);
+			USF.fillField(0,usf,3);
+			mD.resize(315);
+			USF.copyTo(mD);
+			mU.segment(6,312).copyToSegment(mD,3);
+			mDP.resize(331);
+			mD.copyTo(mDP);
+			mP.copyToSegment(mDP,315);
+			int tail = mU.peekField(334, 4);
+			if (tail != 0) {
+				return false;
+			}
+			syndrome = mBlockCoderCS3.syndrome(mDP);
+		}
+		break;
+	case 4:
+		{
+			mU.resize(456);
+			mU = mC.sliced();
+			mP.resize(16);
+			mU.segmentCopyTo(mP,440,16);
+			mP.invert();
+			usf = decodeUSF(mU.peekField(0, 12));
+			if (usf < 0) {
+				return false;
+			}
+			BitVector USF(3);
+			USF.fillField(0,usf,3);
+			mD.resize(431);
+			USF.copyTo(mD);
+			mU.segment(12,428).copyToSegment(mD,3);
+			mDP.resize(447);
+			mD.copyTo(mDP);
+			mP.copyToSegment(mDP,431);
+			syndrome = mBlockCoderCS4.syndrome(mDP);
+		}
+		break;
+	}
+
+	return (syndrome==0);
+}
+
 void PDTCHL1Decoder::handleGoodFrame(float rssi)
 {
-	RLCMACFrame* frame = new RLCMACFrame(mD);
+	RLCMACFrame* frame = new RLCMACFrame(mD.size());
+	switch (mCS) {
+	case 1:
+		break;
+	case 2:
+		frame->resize(272);
+		break;
+	case 3:
+		frame->resize(320);
+		break;
+	case 4:
+		frame->resize(432);
+		break;
+	}
+	frame->zero();
+	mD.copyTo(*frame);
 	GPRS::txPhDataInd(frame, mReadTime, mTN, rssi);
 }
 
@@ -1618,8 +1965,210 @@ void PDTCHL1Encoder::start()
 void PDTCHL1Encoder::open()
 {
 	OBJLOG(DEBUG) <<"PDTCHL1Encoder";
-	XCCHL1Encoder::open();
+	L1Encoder::open();
 }
+
+PDTCHL1Encoder::PDTCHL1Encoder(
+		unsigned wCN,
+		unsigned wTN,
+		const TDMAMapping& wMapping,
+		PDTCHL1FEC* wParent)
+	:L1Encoder(wCN,wTN,wMapping,wParent),
+	mPDTCHParent(wParent),
+	mCS(0),
+	mBlockCoderCS1(0x10004820009ULL, 40, 224),
+	mBlockCoderCS2(0x11021, 16, 271),
+	mBlockCoderCS3(0x11021, 16, 315),
+	mBlockCoderCS4(0x11021, 16, 431),
+	mC(456), mU(228),
+	mD(mU.head(184)),mP(mU.segment(184,40))
+{
+	// Set up the interleaving buffers.
+	for(int k = 0; k<4; k++) {
+		mI[k] = BitVector(114);
+		// Fill with zeros just to make Valgrind happy.
+		mI[k].fill(0);
+	}
+
+	mFillerBurst = TxBurst(gDummyBurst);
+
+	// Set up the training sequence and stealing bits
+	// since they'll be the same for all bursts.
+
+	// stealing bits for a control channel, GSM 05.03 4.2.5, 05.02 5.2.3.
+	mBurst.Hl(1);
+	mBurst.Hu(1);
+	// training sequence, GSM 05.02 5.2.3
+	gTrainingSequence[mTSC].copyToSegment(mBurst,61);
+
+	// zero out u[] to take care of tail fields
+	mU.zero();
+}
+
+
+void PDTCHL1Encoder::interleave()
+{
+	// GSM 05.03, 4.1.4.  Verbatim.
+	for (int k=0; k<456; k++) {
+		int B = k%4;
+		int j = 2*((49*k) % 57) + ((k%8)/4);
+		mI[B][j] = mC[k];
+	}
+}
+
+
+
+void PDTCHL1Encoder::transmit()
+{
+	// Format the bits into the bursts.
+	// GSM 05.03 4.1.5, 05.02 5.2.3
+
+	waitToSend();		// Don't get too far ahead of the clock.
+
+	if (!mDownstream) {
+		// For some testing, we might not have a radio connected.
+		// That's OK, as long as we know it.
+		LOG(WARNING) << "XCCHL1Encoder with no radio, dumping frames";
+		return;
+	}
+
+	for (int B=0; B<4; B++) {
+		mBurst.time(mNextWriteTime);
+		// Copy in the "encrypted" bits, GSM 05.03 4.1.5, 05.02 5.2.3.
+		OBJLOG(DEBUG) << "XCCHL1Encoder mI["<<B<<"]=" << mI[B];
+		mI[B].segment(0,57).copyToSegment(mBurst,3);
+		mI[B].segment(57,57).copyToSegment(mBurst,88);
+		// Send it to the radio.
+		OBJLOG(DEBUG) << "XCCHL1Encoder mBurst=" << mBurst;
+		mDownstream->writeHighSide(mBurst);
+		rollForward();
+	}
+}
+
+
+
+int PDTCHL1Encoder::encodeUSF(int usf)
+{
+	int encodeUSF = -1;
+	int USF_CS_2_3[8] = {0x00, 0x0b, 0x16, 0x1d, 0x25, 0x2e, 0x33, 0x38};
+	int USF_CS_4[8] = {0x000, 0x0dd, 0x376, 0x3ab, 0xd0b, 0xdd6, 0xe7d, 0xea0};
+	switch (mCS) {
+		case 1:
+			break;
+		case 2:
+		case 3:
+			encodeUSF = USF_CS_2_3[usf];
+			break;
+		case 4:
+			encodeUSF = USF_CS_4[usf];
+			break;
+	}
+	return encodeUSF;
+}
+
+
+void PDTCHL1Encoder::puncture()
+{
+	BitVector C(456);
+	C.zero();
+
+	switch (mCS) {
+	case 2:
+		{
+			int j = 0;
+			for(int i = 0; i < 588; i++) {
+				if (punctureCS2[i] == 0) {
+					C[j] = mC[i];
+					j++;
+				}
+			}
+		}
+		break;
+	case 3:
+		{
+			int j = 0;
+			for(int i = 0; i < 676; i++) {
+				if (punctureCS3[i] == 0) {
+					C[j] = mC[i];
+					j++;
+				}
+			}
+		}
+		break;
+	}
+	mC = C;
+}
+
+void PDTCHL1Encoder::encode()
+{
+	// Perform the FEC encoding of GSM 05.03 5.1.1, 5.1.2, 5.1.3, 5.1.4
+
+	switch (mCS) {
+	case 1:
+		mU.resize(228);
+		mU.zero();
+		mP.resize(40);
+		mBlockCoderCS1.writeParityWord(mD,mP);
+		mD.copyTo(mU);
+		mP.copyToSegment(mU, 184);
+		mC.resize(456);
+		mU.encode(mVCoder,mC);
+		break;
+	case 2:
+		{
+			mU.resize(294);
+			mU.zero();
+			mP.resize(16);
+			mBlockCoderCS2.writeParityWord(mD,mP);
+			int usf = encodeUSF(mD.peekField(0,3));
+			BitVector USF(6);
+			USF.fillField(0,usf,6);
+			USF.copyTo(mU);
+			mD.segment(3,268).copyToSegment(mU, 6);
+			mP.copyToSegment(mU, 274);
+			mC.resize(588);
+			mU.encode(mVCoder,mC);
+			puncture();
+		}
+		break;
+	case 3:
+		{
+			mU.resize(338);
+			mU.zero();
+			mP.resize(16);
+			mBlockCoderCS3.writeParityWord(mD,mP);
+			int usf = encodeUSF(mD.peekField(0,3));
+			BitVector USF(6);
+			USF.fillField(0,usf,6);
+			USF.copyTo(mU);
+			mD.segment(3,312).copyToSegment(mU, 6);
+			mP.copyToSegment(mU, 318);
+			mC.resize(676);
+			mU.encode(mVCoder,mC);
+			puncture();
+		}
+		break;
+	case 4:
+		{
+			mU.resize(456);
+			mU.zero();
+			mP.resize(16);
+			mBlockCoderCS4.writeParityWord(mD,mP);
+			int usf = encodeUSF(mD.peekField(0,3));
+			BitVector USF(12);
+			USF.fillField(0,usf,12);
+			USF.copyTo(mU);
+			mD.segment(3,428).copyToSegment(mU, 12);
+			mP.copyToSegment(mU, 440);
+			mC.resize(456);
+			mU.copyTo(mC);
+		}
+		break;
+	}
+}
+
+
+
 
 void PDTCHL1Encoder::dispatch()
 {
@@ -1650,14 +2199,42 @@ void PDTCHL1Encoder::dispatch()
 			{
 				gWriteGSMTAP(gConfig.getNum("GSM.Radio.C0"), mTN,
 				mNextWriteTime.FN(), GSM::PDCH, false, false, *frame);
+				if (frame->payloadType()==GSM::RLCMACDataBlockType){
+				//OBJLOG(ERR) <<"PDTCH Encoder len" << frame->length();
+				//BJLOG(ERR) <<"PDTCH Encoder " << *frame;
+				}
 			}
+			mCS = 0;
 			frame->LSB8MSB();
-			frame->copyTo(mU);
-			// Encode u[] to c[], GSM 05.03 4.1.2 and 4.1.3.
-			encode();
-			delete frame;
-			prio = 1;
-			break;
+			switch (frame->size()) {
+			case 184: // cs1
+				mCS = 1;
+				mD.resize(184);
+				frame->copyToSegment(mD, 0, 184);
+				break;
+			case 272: // cs2
+				mCS = 2;
+				mD.resize(271);
+				frame->copyToSegment(mD, 0, 271);
+				break;
+			case 320: // cs3
+				mCS = 3;
+				mD.resize(315);
+				frame->copyToSegment(mD, 0, 315);
+				break;
+			case 432: // cs4
+				mCS = 4;
+				mD.resize(431);
+				frame->copyToSegment(mD, 0, 431);
+				break;
+			}
+
+			if (mCS >0) {
+				encode();
+				delete frame;
+				prio = 1;
+				break;
+			}
 		}
 	}
 
@@ -1687,9 +2264,22 @@ void PDTCHL1Encoder::dispatch()
 		mI[B].segment(0,57).copyToSegment(mBurst,3);
 		mI[B].segment(57,57).copyToSegment(mBurst,88);
 		// stealing bits
-		//use CS1 now
-		mBurst.Hu(true);
-		mBurst.Hl(true);
+		int cs_mask[4][8] = {{1,1,1,1,1,1,1,1},
+							 {1,1,0,0,1,0,0,0},
+							 {0,0,1,0,0,0,0,1},
+							 {0,0,0,1,0,1,1,0}};
+		switch (mCS) {
+		case 1:
+			mBurst.Hu(true);
+			mBurst.Hl(true);
+			break;
+		case 2:
+		case 3:
+		case 4:
+			mBurst.Hl(cs_mask[mCS-1][2*B]);
+			mBurst.Hu(cs_mask[mCS-1][2*B+1]);
+			break;
+		}
 		// Send it to the radio.
 		//OBJLOG(NOTICE) << "PDTCHL1Encoder mBurst=" << mBurst;
 		mDownstream->writeHighSide(mBurst);
@@ -1769,14 +2359,5 @@ void SACCHL1Encoder::sendFrame(const L2Frame& frame)
 	// Encode the rest of the frame.
 	XCCHL1Encoder::sendFrame(frame);
 }
-
-void PDTCHL1Encoder::sendFrame(const L2Frame& frame)
-{
-	//OBJLOG(DEEPDEBUG) << "PDTCHL1Encoder " << frame;
-	XCCHL1Encoder::sendFrame(frame);
-}
-
-
-
 
 // vim: ts=4 sw=4
