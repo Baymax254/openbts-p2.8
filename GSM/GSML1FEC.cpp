@@ -32,6 +32,7 @@
 #include "GSMTDMA.h"
 #include "GSMTAPDump.h"
 #include <ControlCommon.h>
+#include <GPRSL1Interface.h>
 #include <Globals.h>
 #include <TRXManager.h>
 #include <Logger.h>
@@ -727,6 +728,57 @@ void SACCHL1Decoder::handleGoodFrame()
 	XCCHL1Decoder::handleGoodFrame();
 }
 
+void PDTCHL1Decoder::open()
+{
+	ScopedLock lock(mLock);
+	mT3111.reset();
+	mT3109.reset();
+	if (mT3101.active()) {
+			mT3101.reset();
+		}
+	if (!mRunning) start();
+	mFER=0.0F;
+	mActive = true;
+}
+
+void PDTCHL1Decoder::close(bool hardRelease)
+{
+	ScopedLock lock(mLock);
+	mActive = false;
+}
+
+bool PDTCHL1Decoder::processBurst(const RxBurst& inBurst)
+{
+	return XCCHL1Decoder::processBurst(inBurst);
+}
+
+void PDTCHL1Decoder::writeLowSide(const RxBurst& inBurst)
+{
+	OBJLOG(INFO) <<"PDTCHL1Decoder burst=" << inBurst.time() << " " << inBurst.RSSI() << " "
+                                           << inBurst.data1() << inBurst.data2() << (inBurst.Hu()?"1":"0") << (inBurst.Hl()?"1":"0");
+	// If the channel is closed, ignore the burst.
+	if (!active()) {
+		OBJLOG(DEBUG) <<"PDTCHL1Decoder not active, ignoring input";
+		return;
+	}
+	// Accept the burst into the deinterleaving buffer.
+	// Return true if we are ready to interleave.
+	if (!processBurst(inBurst)) return;
+	deinterleave();
+	if (decode()) {
+		countGoodFrame();
+		mD.LSB8MSB();
+		handleGoodFrame(inBurst.RSSI());
+	} else {
+		countBadFrame();
+	}
+}
+
+void PDTCHL1Decoder::handleGoodFrame(float rssi)
+{
+	RLCMACFrame* frame = new RLCMACFrame(mD);
+	GPRS::txPhDataInd(frame, mReadTime, mTN, rssi);
+}
 
 
 
@@ -1025,7 +1077,15 @@ void BCCHL1Encoder::generate()
 		case 1: writeHighSide(gBTS.SI2Frame()); return;
 		case 2: writeHighSide(gBTS.SI3Frame()); return;
 		case 3: writeHighSide(gBTS.SI4Frame()); return;
-		case 4: writeHighSide(gBTS.SI3Frame()); return;
+		case 4: {
+			if (gConfig.getNum("GSM.GPRS")) {
+				writeHighSide(gBTS.SI13Frame());
+			}
+			else {
+				writeHighSide(gBTS.SI3Frame());
+			}
+			return;
+		}
 		case 5: writeHighSide(gBTS.SI2Frame()); return;
 		case 6: writeHighSide(gBTS.SI3Frame()); return;
 		case 7: writeHighSide(gBTS.SI4Frame()); return;
@@ -1483,8 +1543,6 @@ void SACCHL1Decoder::setPhy(const SACCHL1Decoder& other)
 		<< " MSPower=" << mActualMSPower << " MSTiming=" << mActualMSTiming;
 }
 
-
-
 void SACCHL1Encoder::setPhy(float wRSSI, float wTimingError)
 {
 	// Used to initialize L1 phy parameters.
@@ -1543,11 +1601,112 @@ void SACCHL1Encoder::open()
 	mOrderedMSTiming = 0;
 }
 
+void GSM::PDTCHL1EncoderRoutine( PDTCHL1Encoder * encoder )
+{
+	while (1) {
+		encoder->dispatch();
+	}
+}
 
+void PDTCHL1Encoder::start()
+{
+	L1Encoder::start();
+	OBJLOG(DEBUG) <<"PDTCHL1Encoder";
+	mEncoderThread.start((void*(*)(void*))PDTCHL1EncoderRoutine,(void*)this);
+}
+
+void PDTCHL1Encoder::open()
+{
+	OBJLOG(DEBUG) <<"PDTCHL1Encoder";
+	XCCHL1Encoder::open();
+}
+
+void PDTCHL1Encoder::dispatch()
+{
+
+	// Let previous data get transmitted.
+	resync();
+	waitToSend();
+
+	// Priority: (1) PDTCH, (2) filler.
+	unsigned prio = 2;
+	while (RLCMACFrame *frame = mRLCMACQ.readNoBlock())
+	{
+		if (mNextWriteTime.FN() != frame->fn())
+		{
+			// Handling synchronization problem between openbts and osmo-pcu.
+			// Sometimes openbts receives data from pcu with outdated frame number,
+			// openbts should skip outdated data and continue transmission.
+			// TODO: Add special counter for this event.
+			OBJLOG(ERR) <<"Synchronization problem [openbts<->osmo-pcu] : osmo-pcu FN = "
+								 << frame->fn() << " openbts FN = "<< mNextWriteTime.FN()
+								 << " TN = " << mNextWriteTime.TN();
+			delete frame;
+		}
+		else
+		{
+			OBJLOG(NOTICE) <<"PDTCH Encoder " << *frame;
+			if (frame->peekField(0,16) != 0x4794)
+			{
+				gWriteGSMTAP(gConfig.getNum("GSM.Radio.C0"), mTN,
+				mNextWriteTime.FN(), GSM::PDCH, false, false, *frame);
+			}
+			frame->LSB8MSB();
+			frame->copyTo(mU);
+			// Encode u[] to c[], GSM 05.03 4.1.2 and 4.1.3.
+			encode();
+			delete frame;
+			prio = 1;
+			break;
+		}
+	}
+
+	// Send, by priority: (1) PDTCH, (2) filler.
+	if (prio == 2) {
+		// We have no ready data but must send SOMETHING.
+		// RLC/MAC filler with USF=1
+		static const BitVector filler("0100000110010100001010110010101100101011001010110010101100101011001010110010101100101011001010110010101100101011001010110010101100101011001010110010101100101011001010110010101100101011");
+		filler.copyTo(mD);
+		//OBJLOG(INFO) <<"PDTCHL1Encoder filler d[] " << mD.size() << " " << mD;
+		mD.LSB8MSB();
+		//OBJLOG(INFO) <<"PDTCHL1Encoder filler d[] " << mD.size() << " " << mD;
+		encode();
+		//OBJLOG(INFO) <<"PDTCHL1Encoder filler U[] " << mU.size() << " " << mU;
+		//OBJLOG(INFO) <<"PDTCHL1Encoder filler c[] " << mC.size() << " " << mC;
+	}
+
+	interleave();
+
+	// Format the bits into the bursts.
+	// GSM 05.03 4.1.5, 05.02 5.2.3
+
+	for (int B=0; B<4; B++) {
+		mBurst.time(mNextWriteTime);
+		// Copy in the "encrypted" bits, GSM 05.03 4.1.5, 05.02 5.2.3.
+		//OBJLOG(DEEPDEBUG) << "PDTCHL1Encoder mI["<<B<<"]=" << mI[B];
+		mI[B].segment(0,57).copyToSegment(mBurst,3);
+		mI[B].segment(57,57).copyToSegment(mBurst,88);
+		// stealing bits
+		//use CS1 now
+		mBurst.Hu(true);
+		mBurst.Hl(true);
+		// Send it to the radio.
+		//OBJLOG(NOTICE) << "PDTCHL1Encoder mBurst=" << mBurst;
+		mDownstream->writeHighSide(mBurst);
+		rollForward();
+	}
+	// Send phReadyToSendInd primitive to gprs PCU
+	GPRS::txPhReadyToSendInd(mNextWriteTime.TN(), mNextWriteTime.FN());
+}
 
 SACCHL1Encoder* SACCHL1Decoder::SACCHSibling() 
 {
 	return mSACCHParent->encoder();
+}
+
+PDTCHL1Encoder* PDTCHL1Decoder::PDTCHSibling() 
+{
+	return mPDTCHParent->encoder();
 }
 
 SACCHL1Decoder* SACCHL1Encoder::SACCHSibling() 
@@ -1555,7 +1714,10 @@ SACCHL1Decoder* SACCHL1Encoder::SACCHSibling()
 	return mSACCHParent->decoder();
 }
 
-
+PDTCHL1Decoder* PDTCHL1Encoder::PDTCHSibling() 
+{
+	return mPDTCHParent->decoder();
+}
 
 void SACCHL1Encoder::sendFrame(const L2Frame& frame)
 {
@@ -1608,7 +1770,11 @@ void SACCHL1Encoder::sendFrame(const L2Frame& frame)
 	XCCHL1Encoder::sendFrame(frame);
 }
 
-
+void PDTCHL1Encoder::sendFrame(const L2Frame& frame)
+{
+	//OBJLOG(DEEPDEBUG) << "PDTCHL1Encoder " << frame;
+	XCCHL1Encoder::sendFrame(frame);
+}
 
 
 

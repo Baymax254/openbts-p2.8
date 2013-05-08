@@ -44,7 +44,7 @@ ReportingTable gReports(gConfig.getStr("Control.Reporting.StatsTable","/var/log/
 
 #include <ControlCommon.h>
 #include <TransactionTable.h>
-
+#include <GPRSL1Interface.h>
 #include <SIPInterface.h>
 #include <Globals.h>
 
@@ -472,6 +472,25 @@ int main(int argc, char *argv[])
 	while (sCount<8) {
 		gBTS.createCombination0(gTRX,sCount);
 		sCount++;
+	}
+
+	//GPRS
+	if (gConfig.getNum("GSM.GPRS")) {
+		PDTCHLogicalChannel* PDTCH[8];
+		vector<unsigned> gprsTS = gConfig.getVector("GPRS.TS");
+
+		for (int i=0; i<gprsTS.size(); i++) {
+			C0radio->setSlot(gprsTS[i],13);
+		}
+
+		for (int i=0; i<gprsTS.size(); i++) {
+			PDTCH[gprsTS[i]] = new PDTCHLogicalChannel(0,gprsTS[i],gPDTCH_FPair);
+			PDTCH[gprsTS[i]]->downstream(C0radio);
+			PDTCH[gprsTS[i]]->open();
+			gBTS.addPDTCH(PDTCH[gprsTS[i]]);
+		}
+		Thread* threadGb = new Thread;
+		threadGb->start((void*(*)(void*))GPRS::GPRSReader,PDTCH);
 	}
 
 	/*
