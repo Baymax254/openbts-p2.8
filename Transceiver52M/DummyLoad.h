@@ -128,5 +128,9 @@ private:
   inline double numberRead() { return samplesRead; }
   inline double numberWritten() { return samplesWritten;}
 
+  /** Get Rx stream offset relative to Tx stream (in seconds) */
+  double getRxOffset() const { return 0; }
+  /** Set Rx stream offset relative to Tx stream (in seconds) */
+  bool setRxOffset(double offset) { return false; }
 };
 

@@ -197,6 +197,11 @@ public:
 	inline double numberRead() { return rx_pkt_cnt; }
 	inline double numberWritten() { return 0; }
 
+    /** Get Rx stream offset relative to Tx stream (in seconds) */
+    double getRxOffset() const { return ts_offset / actual_smpl_rt; }
+    /** Set Rx stream offset relative to Tx stream (in seconds) */
+    bool setRxOffset(double offset) { ts_offset = (TIMESTAMP)(offset * actual_smpl_rt); return true; }
+
 	/** Receive and process asynchronous message
 	    @return true if message received or false on timeout or error
 	*/
@@ -492,7 +497,7 @@ bool uhd_device::open(const std::string &args)
 	rx_smpl_buf = new smpl_buf(buf_len, actual_smpl_rt);
 
 	// Set receive chain sample offset 
-	ts_offset = (TIMESTAMP)(rx_smpl_offset * actual_smpl_rt);
+    ts_offset = setRxOffset(rx_smpl_offset);
 
 	// Initialize and shadow gain values 
 	init_gains();

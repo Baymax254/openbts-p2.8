@@ -604,16 +604,27 @@ void Transceiver::driveControl()
     if ((mTSC<0) || (timeslot < 0) || (timeslot > 7)) {
       LOG(WARNING) << "bogus message on control interface";
       sprintf(response,"RSP SETSLOT 1 %d %d",timeslot,corrCode);
-      return;
     }     
     mChanType[timeslot] = (ChannelCombination) corrCode;
     setModulus(timeslot);
     sprintf(response,"RSP SETSLOT 0 %d %d",timeslot,corrCode);
 
   }
+  else if (strcmp(command,"SETRXOFFSET")==0) {
+    // set Rx delay
+    double  offset;
+    sscanf(buffer,"%3s %s %lf",cmdcheck,command,&offset);
+    if (!mRadioInterface->setRxOffset(offset)) {
+      LOG(WARNING) << "incorrect Rx offset value on control interface";
+      sprintf(response,"RSP SETRXOFFSET 1 %lf",offset);
+    } else {
+      sprintf(response,"RSP SETRXOFFSET 0 %lf",offset);
+    }
+
+  }
   else {
     LOG(WARNING) << "bogus command " << command << " on control interface.";
-    sprintf(response,"RSP ERR 1");
+    sprintf(response,"RSP %s 1", command);
   }
 
   mControlSocket.write(response,strlen(response)+1);

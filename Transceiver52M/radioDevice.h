@@ -130,6 +130,11 @@ class RadioDevice {
   virtual double numberRead()=0;
   virtual double numberWritten()=0;
 
+  /** Get Rx stream offset relative to Tx stream (in seconds) */
+  virtual double getRxOffset() const =0;
+  /** Set Rx stream offset relative to Tx stream (in seconds) */
+  virtual bool setRxOffset(double offset) =0;
+
 };
 
 #endif

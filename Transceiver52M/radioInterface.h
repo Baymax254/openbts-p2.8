@@ -141,6 +141,12 @@ public:
   /** get transport bus type of attached device */ 
   enum RadioDevice::busType getBus() { return mRadio->getBus(); }
 
+  /** Get Rx stream offset relative to Tx stream (in seconds) */
+  double getRxOffset() const { return mRadio->getRxOffset(); }
+
+  /** Set Rx stream offset relative to Tx stream (in seconds) */
+  bool setRxOffset(double offset) { return mRadio->setRxOffset(offset); }
+
 protected:
 
   /** drive synchronization of Tx/Rx of USRP */
