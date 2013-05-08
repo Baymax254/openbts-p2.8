@@ -80,6 +80,34 @@ void L3Message::text(ostream& os) const
 	os << " MTI=" << MTI();
 }
 
+void RLCMACBlock::parse(const RLCMACFrame& source)
+{
+	size_t rp = 2;
+	parseBody(source,rp);
+}
+
+
+void RLCMACBlock::write(RLCMACFrame& dest) const
+{
+	dest.resize(23*8); // standard size for RLC/MAC Block 23 octet
+	size_t wp = 0;
+	// write Payload Type 
+	dest.writeField(wp,payloadType(),2);
+	// write the body
+	writeBody(dest,wp);
+}
+
+RLCMACFrame* RLCMACBlock::frame() const
+{
+	RLCMACFrame *newFrame = new RLCMACFrame(bitsNeeded());
+	write(*newFrame);
+	return newFrame;
+}
+
+void RLCMACBlock::text(ostream& os) const
+{
+	os << " PayloadType = " << payloadType();
+}
 
 
 
@@ -166,6 +194,11 @@ GSM::L3Message* GSM::parseL3(const GSM::L3Frame& source)
 }
 
 
+ostream& GSM::operator<<(ostream& os, const RLCMACBlock& block)
+{
+	block.text(os);
+	return os;
+}
 
 
 

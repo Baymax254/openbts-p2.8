@@ -55,7 +55,17 @@ void L3Message::parseBody(const L3Frame&, size_t&)
 	assert(0);
 }
 
+void RLCMACBlock::writeBody(RLCMACFrame&,size_t&) const
+{
+	LOG(ERR) << "not implemented ";
+	assert(0);
+}
 
+void RLCMACBlock::parseBody(const RLCMACFrame&, size_t&)
+{
+	LOG(ERR) << "not implemented ";
+	assert(0);
+}
 
 
 
@@ -333,7 +343,10 @@ void L3SystemInformationType3::writeBody(L3Frame& dest, size_t &wp) const
 	LOG(DEBUG) << dest;
 	mRACHControlParameters.writeV(dest,wp);
 	LOG(DEBUG) << dest;
-	if (mHaveRestOctets) mRestOctets.writeV(dest,wp);
+	//if (mHaveRestOctets) mRestOctets.writeV(dest,wp);
+	if (gConfig.getNum("GSM.GPRS")) {
+		mSI3RestOctets.writeV(dest,wp);
+	}
 	LOG(DEBUG) << dest;
 }
 
@@ -347,7 +360,10 @@ void L3SystemInformationType3::text(ostream& os) const
 	os << " cellOptions=(" << mCellOptions << ")";
 	os << " cellSelectionParameters=(" << mCellSelectionParameters << ")";
 	os << " RACHControlParameters=(" << mRACHControlParameters << ")";
-	if (mHaveRestOctets) os << " SI3RO=(" << mRestOctets << ")";
+	//if (mHaveRestOctets) os << " SI3RO=(" << mRestOctets << ")";
+	if (gConfig.getNum("GSM.GPRS")) {
+		os << " SI3RestOctets=(" << mSI3RestOctets << ")";
+	}
 }
 
 
@@ -436,6 +452,21 @@ void L3SystemInformationType6::text(ostream& os) const
 	os << " NCCPermitted=(" << mNCCPermitted << ")";
 }
 
+void L3SystemInformationType13::writeBody(L3Frame& dest, size_t &wp) const
+{
+/**
+	System Information Type 13, GSM 04.08 9.1.43a
+	- SI 13 Rest Octets 10.5.2.37b M V 20
+*/
+	mSI13RestOctets.writeV(dest,wp);
+}
+
+
+void L3SystemInformationType13::text(ostream& os) const
+{
+	L3RRMessage::text(os);
+	os << " SI13RestOctets=(" << mSI13RestOctets << ")";
+}
 
 void L3ImmediateAssignment::writeBody( L3Frame &dest, size_t &wp ) const
 {
