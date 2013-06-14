@@ -335,9 +335,10 @@ SoftVector *Transceiver::pullRadioVector(GSM::Time &wTime,
 
         prevFalseDetectionTime = rxBurst->getTime();
      }
-     delete rxBurst;
-     return NULL;
+//     delete rxBurst;
+//     return NULL;
   }
+//  std::cout << "Estimated Energy: " << sqrt(avgPwr) << ", at time " << rxBurst->getTime() << '\n';
   LOG(DEBUG) << "Estimated Energy: " << sqrt(avgPwr) << ", at time " << rxBurst->getTime();
 
   // run the proper correlator
@@ -369,6 +370,7 @@ SoftVector *Transceiver::pullRadioVector(GSM::Time &wTime,
 				  &channelResp,
 				  &chanOffset);
     if (success) {
+      printf("% 7.1f % 5.1f ", amplitude.abs(), TOA);
       LOG(DEBUG) << "FOUND TSC!!!!!! " << amplitude << " " << TOA;
       mEnergyThreshold -= 1.0F/10.0F;
       if (mEnergyThreshold < 0.0) mEnergyThreshold = 0.0;
@@ -436,7 +438,8 @@ SoftVector *Transceiver::pullRadioVector(GSM::Time &wTime,
     timingOffset = (int) round(TOA*256.0/mSamplesPerSymbol);
   }
 
-  //if (burst) LOG(DEBUG) << "burst: " << *burst << '\n';
+  if (burst) std::cout << "burst: " << *burst << '\n';
+  else std::cout << ".\n";
 
   delete rxBurst;
 
@@ -685,7 +688,7 @@ bool Transceiver::driveTransmitPriorityQueue()
   
   addRadioVector(newBurst,RSSI,currTime);
   
-  LOG(DEBUG) "added burst - time: " << currTime << ", RSSI: " << RSSI; // << ", data: " << newBurst; 
+  LOG(DEBUG) << "added burst - time: " << currTime << ", RSSI: " << RSSI; // << ", data: " << newBurst;
 
   return true;
 
